@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Хеммінг</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="title">Алгоритм Хеммінга</div>
+        <div class="tabs">
+            <button id="encode-tabs">Кодування</button>
+            <button id="decode-tabs">Декодування</button>
+        </div>
+        <div id="encode">
+            <div class="input-group">
+                <input type="text" id="input-encode" value="">
+                <button id="button-encode">ОК</button>
+            </div>
+
+            <div id="encode-group"></div>
+        </div>
+        <div id="decode">
+            <div class="input-group">
+                <input type="text" id="input-decode" value="">
+                <button id="button-decode">ОК</button>
+            </div>
+
+            <div id="decode-group"></div>
+        </div>
+    </div>
+
+    <script>
+        function Hamming(str) {
+            this.bits = [...str]
+        }
+
+        Hamming.prototype = {
+            encode() {
+                let inputBits = this.parseArrToInt()
+
+                let r = 0
+                let M = inputBits.length
+
+                while(Math.pow(2, r) < M + r + 1) r++
+
+                let bits = new Array(M + r)
+                let j = 0
+
+                for(let i = 0; i < bits.length; i++) {
+                    if(this.degreeOfTwo(i + 1))
+                        bits[i] = 0
+                    else {
+                        bits[i] = inputBits[j]
+                        j++
+                    }
+                }
+
+                let controlBitsSums = this.controlBitsSums(bits, r)
+
+                for(let i = 0; i < controlBitsSums.length; i++)
+                    bits[Math.pow(2, i) - 1] = controlBitsSums[i]
+
+                return {
+                    controlBitsSums: controlBitsSums,
+                    bits: bits.join(''),
+                }
+            },
+            decode() {
+                let inputBits = this.parseArrToInt()
+
+                let r = 0
+
+                while (Math.pow(2, r) < inputBits.length + 1) r++
+
+                let controlBitsSums = this.controlBitsSums(inputBits, r)
+
+                let errorPosition = parseInt(controlBitsSums.reverse().join(''), 2)
+
+                if(errorPosition !== 0)
+                    inputBits[errorPosition - 1] = Math.abs(inputBits[errorPosition - 1] - 1)
+
+                let bits = []
+
+                inputBits.forEach((el, i) => {
+                    if (!this.degreeOfTwo(i + 1))
+                        bits.push(el)
+                })
+
+                return {
+                    errorPosition: errorPosition,
+                    bits: bits.join(''),
+                }
+            },
+            parseArrToInt() {
+                return this.bits.map(el => parseInt(el))
+            },
+            degreeOfTwo(number) {
+                let bin = Number(number).toString(2)
+                let sum = 0
+
+                for (let d of bin)
+                    sum += parseInt(d)
+
+                return sum === 1
+            },
+            controlBitsSums(bits, r) {
+                let numbers = new Array(bits.length)
+                let controlBitsSums = new Array(r)
+
+                for(let i = 0; i < numbers.length; i++)
+                    numbers[i] = i + 1
+
+                let sum = 0
+
+                for(let i = 0; i < controlBitsSums.length; i++) {
+                    sum = 0
+                    for(let j = 0; j < bits.length; j++) {
+                        sum += (numbers[j] % 2) * bits[j]
+                        numbers[j] =  parseInt(numbers[j] / 2)
+                    }
+                    controlBitsSums[i] = sum % 2
+                }
+
+                return controlBitsSums
+            },
+        }
+
+        let encode = document.getElementById('encode')
+        let decode = document.getElementById('decode')
+
+        let encodeTabs = document.getElementById('encode-tabs')
+        let decodeTabs = document.getElementById('decode-tabs')
+
+        let inputEncode = document.getElementById('input-encode')
+        let buttonEncode = document.getElementById('button-encode')
+        let encodeGroup = document.getElementById('encode-group')
+
+        let inputDecode = document.getElementById('input-decode')
+        let buttonDecode = document.getElementById('button-decode')
+        let decodeGroup = document.getElementById('decode-group')
+
+        encode.classList.add('active')
+        encodeTabs.classList.add('active')
+
+        encodeTabs.addEventListener('click', () => {
+            encode.classList.add('active')
+            encodeTabs.classList.add('active')
+
+            decode.classList.remove('active')
+            decodeTabs.classList.remove('active')
+        })
+
+        decodeTabs.addEventListener('click', () => {
+            decode.classList.add('active')
+            decodeTabs.classList.add('active')
+
+            encode.classList.remove('active')
+            encodeTabs.classList.remove('active')
+        })
+
+        buttonEncode.addEventListener('click', () => {
+            let hamming = new Hamming(inputEncode.value.split(' ').join(''))
+
+            encodeGroup.classList.add('active')
+            encodeGroup.innerHTML = `<div class="encode-title">Кодований текст</div>
+                                    <div class="encode-text"><div style="word-wrap: break-word;">` + hamming.encode().bits + `</div></div>`
+
+            inputDecode.value = hamming.encode().bits
+
+            encodeGroup.innerHTML += `<div class="encode-control"></div>`
+            encodeGroup.lastChild.innerHTML += `<div class="encode-title">Керуючі біти</div>`
+            hamming.encode().controlBitsSums.forEach((el, i) => {
+                encodeGroup.lastChild.innerHTML += `<div class="control">r` + Math.pow(2, i) + ` = ` + el + `</div>`
+            })
+        })
+
+        buttonDecode.addEventListener('click', () => {
+            let hamming = new Hamming(inputDecode.value)
+
+            decodeGroup.classList.add('active')
+
+            decodeGroup.innerHTML = `<div class="decode-control"></div>`
+
+            if(hamming.decode().errorPosition !== 0) {
+                decodeGroup.lastChild.innerHTML = `<div class="decode-title">Помилку знайдено</div>`
+                decodeGroup.lastChild.innerHTML += `<div class="decode-text" style="margin-bottom: 0"><div style="word-wrap: break-word;">`
+                                                        +
+                                                            '-'.repeat(hamming.decode().errorPosition - 1) +
+                                                            'o' +
+                                                            '-'.repeat(inputDecode.value.length - hamming.decode().errorPosition)
+                                                        +
+                                                    `</div></div>`
+                decodeGroup.lastChild.innerHTML += `<div class="decode-text">- помилка знаходиться на позиції (` +
+                                                        hamming.decode().errorPosition +
+                                                        `), її значення (` +
+                                                        inputDecode.value.split('')[hamming.decode().errorPosition - 1] +
+                                                        `), а має бути (` +
+                                                        Math.abs(inputDecode.value.split('')[hamming.decode().errorPosition - 1] - 1) +
+                                                    `)</div>`
+            } else
+                decodeGroup.lastChild.innerHTML = `<div class="decode-title" style="margin-bottom: 20px">Помилку не знайдено</div>`
+
+            decodeGroup.innerHTML += `<div class="decode-title">Декодований текст</div>
+                                    <div class="decode-text"><div style="word-wrap: break-word;">` + hamming.decode().bits + `</div></div>`
+        })
+    </script>
+</body>
+</html>
